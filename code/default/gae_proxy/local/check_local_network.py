@@ -21,7 +21,12 @@ if __name__ == "__main__":
         sys.path.append(linux_lib)
 
 
+#try:
+#    from code.default.gae_proxy.local.config import config
+#except:
+#    from code.default.gae_proxy.local.config import config
 from config import config
+
 import simple_http_client
 from xlog import getLogger
 xlog = getLogger("gae_proxy")
@@ -50,7 +55,7 @@ class CheckNetwork(object):
         else:
             self.proxy = None
 
-        self.http_client = simple_http_client.Client(self.proxy, timeout=30)
+        self.http_client = simple_http_client.Client(self.proxy, timeout=10)
 
     def report_ok(self):
         self.network_stat = "OK"
@@ -84,14 +89,12 @@ class CheckNetwork(object):
                 "accept-language": 'en-US,en;q=0.8,ja;q=0.6,zh-CN;q=0.4,zh;q=0.2',
                 "connection": "keep-alive"
                 }
-            response = self.http_client.request("HEAD", url, header, "")
+            response = self.http_client.request("HEAD", url, header, "", read_payload=False)
             if response:
                 return True
         except Exception as e:
             if __name__ == "__main__":
                 xlog.exception("test %s e:%r", url, e)
-
-            pass
 
         return False
 
@@ -107,6 +110,10 @@ class CheckNetwork(object):
             if self._test_host(url):
                 network_ok = True
                 break
+            else:
+                if __name__ == "__main__":
+                    xlog.warn("test %s fail", url)
+                time.sleep(1)
 
         if network_ok:
             self.last_check_time = time.time()
@@ -149,7 +156,11 @@ IPv4.urls = [
 IPv4.triger_check_network()
 
 IPv6 = CheckNetwork("IPv6")
-IPv6.urls = ["http://[2001:470:1:18::125]", "http://[2001:41d0:8:e8ad::1]", "http://[2001:260:401:372::5f]"]
+IPv6.urls = ["http://[2001:41d0:8:e8ad::1]",
+             "http://[2001:260:401:372::5f]",
+             "http://[2a02:188:3e00::32]",
+             "http://[2804:10:4068::202:82]"
+             ]
 IPv6.triger_check_network()
 
 
@@ -167,12 +178,14 @@ def report_fail(ip):
         IPv6.report_fail()
 
 
-def is_ok(ip):
-    if "." in ip:
+def is_ok(ip=None):
+    if not ip:
+        return IPv4.is_ok() or IPv6.is_ok()
+    elif "." in ip:
         return IPv4.is_ok()
     else:
         return IPv6.is_ok()
 
 
 if __name__ == "__main__":
-    print IPv6._test_host("http://[2001:470:1:18::125]")
+    print IPv6._test_host("http://[2804:10:4068::202:82]")
